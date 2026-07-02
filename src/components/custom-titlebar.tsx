@@ -2,41 +2,51 @@
 
 import { useEffect, useState } from "react";
 import { Logo } from "./icons";
+import { isDesktopApp } from "@/lib/utils";
 
-// Define the API exposed by the preload script
-declare global {
-  interface Window {
-    electron: {
-      minimize: () => void;
-      maximize: () => void;
-      close: () => void;
-      on: (channel: string, callback: (...args: any[]) => void) => () => void;
-    };
-  }
+async function getAppWindow() {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow();
 }
 
 export function CustomTitlebar() {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    // These listeners update the state when the window is maximized or unmaximized
-    // by the OS, e.g., by double-clicking the title bar.
-    const unsubMaximize = window.electron.on('window-maximized', () => setIsMaximized(true));
-    const unsubUnmaximize = window.electron.on('window-unmaximized', () => setIsMaximized(false));
-
-    // Cleanup function to remove listeners
-    return () => {
-      unsubMaximize();
-      unsubUnmaximize();
+    const syncState = async () => {
+      if (!isDesktopApp()) return;
+      const appWindow = await getAppWindow();
+      setIsMaximized(await appWindow.isMaximized());
     };
+
+    void syncState();
   }, []);
 
-  const handleMinimize = () => window.electron.minimize();
-  const handleMaximize = () => window.electron.maximize();
-  const handleClose = () => window.electron.close();
+  const handleMinimize = async () => {
+    const appWindow = await getAppWindow();
+    await appWindow.hide();
+    await appWindow.setSkipTaskbar(true);
+  };
 
-  // We don't render anything if not in Electron
-  if (typeof window === 'undefined' || !window.electron) {
+  const handleMaximize = async () => {
+    const appWindow = await getAppWindow();
+    const maximized = await appWindow.isMaximized();
+
+    if (maximized) {
+      await appWindow.unmaximize();
+      setIsMaximized(false);
+    } else {
+      await appWindow.toggleMaximize();
+      setIsMaximized(true);
+    }
+  };
+
+  const handleClose = async () => {
+    const appWindow = await getAppWindow();
+    await appWindow.destroy();
+  };
+
+  if (typeof window === 'undefined' || !isDesktopApp()) {
     return null;
   }
 

@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/contexts/theme-provider';
 import { LanguageProvider } from '@/contexts/language-provider';
 import { AuthProvider } from '@/contexts/auth-provider';
 import { CustomTitlebar } from '@/components/custom-titlebar';
-import { isElectron } from '@/lib/utils';
+import { isDesktopApp } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 
 export default function RootLayout({
@@ -14,10 +14,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [isElectronApp, setIsElectronApp] = useState(false);
+  const [isDesktopAppShell, setIsDesktopAppShell] = useState(false);
 
   useEffect(() => {
-    setIsElectronApp(isElectron());
+    setIsDesktopAppShell(isDesktopApp());
+
+    if (!isDesktopApp()) {
+      return;
+    }
+
+    const preventContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('contextmenu', preventContextMenu);
+
+    return () => {
+      window.removeEventListener('contextmenu', preventContextMenu);
+    };
   }, []);
 
   return (
@@ -30,8 +44,8 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>
-              {isElectronApp && <CustomTitlebar />}
-              <main className={isElectronApp ? "container-after-titlebar" : "h-screen"}>
+              {isDesktopAppShell && <CustomTitlebar />}
+              <main className={isDesktopAppShell ? "container-after-titlebar" : "h-screen"}>
                 {children}
               </main>
               <Toaster />

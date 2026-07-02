@@ -1,0 +1,173 @@
+name: 'Publish Release'
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+            rust_target: 'x86_64-pc-windows-msvc'
+            friendly_name: 'JeyPass'
+
+          - platform: 'windows-latest'
+            args: '--target i686-pc-windows-msvc'
+            rust_target: 'i686-pc-windows-msvc'
+            friendly_name: 'JeyPass'
+
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            rust_target: 'aarch64-apple-darwin'
+            friendly_name: 'JeyPass'
+
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+            rust_target: 'x86_64-apple-darwin'
+            friendly_name: 'JeyPass'
+
+          - platform: 'ubuntu-22.04'
+            args: '--target x86_64-unknown-linux-gnu'
+            rust_target: 'x86_64-unknown-linux-gnu'
+            friendly_name: 'JeyPass'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: install frontend dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.4 --activate
+          pnpm install
+
+      - name: Update App Name for Platform
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            config.productName = '${{ matrix.friendly_name }}';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2));
+          "
+
+      - name: Build and Publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'App ${{ github.ref_name }}'
+          releaseBody: 'تغییرات این نسخه را در فایل‌های زیر دانلود کنید.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  publish-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: install Android SDK packages
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: install frontend dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.4 --activate
+          pnpm install
+
+      - name: build web app
+        run: pnpm build
+
+      - name: prepare Android app icon from project asset
+        run: |
+          mkdir -p android/app/src/main/res/mipmap-mdpi android/app/src/main/res/mipmap-hdpi android/app/src/main/res/mipmap-xhdpi android/app/src/main/res/mipmap-xxhdpi android/app/src/main/res/mipmap-xxxhdpi
+          cp public/icons/icon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp public/icons/icon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp public/icons/icon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp public/icons/icon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp public/icons/icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+      - name: create Capacitor Android project if needed
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: sync Capacitor Android
+        run: npx cap sync android
+
+      - name: create keystore file from secret
+        if: ${{ env.KEYSTORE_FILE != '' }}
+        env:
+          KEYSTORE_FILE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          echo "$KEYSTORE_FILE_BASE64" | base64 --decode > android/keystore.jks
+
+      - name: build Android release APK and AAB
+        working-directory: android
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/android/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
+
+      - name: upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-${{ github.ref_name }}
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+
+      - name: publish Android artifacts to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab

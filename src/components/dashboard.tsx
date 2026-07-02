@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordGeneratorModal } from "./password-generator-modal";
 import { ThemeSwitcher } from "./theme-switcher";
 import { FloatingActionMenu } from "./floating-action-menu";
-import { isElectron } from "@/lib/utils";
+import { isDesktopApp } from "@/lib/utils";
 
 export function Dashboard() {
   const { credentials, deleteCredential } = useVault();
@@ -25,11 +25,11 @@ export function Dashboard() {
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [credentialToEdit, setCredentialToEdit] = useState<Credential | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isElectronApp, setIsElectronApp] = useState(false);
+  const [isDesktopAppShell, setIsDesktopAppShell] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
-    setIsElectronApp(isElectron());
+    setIsDesktopAppShell(isDesktopApp());
   }, []);
 
   const handleAddNew = () => {
@@ -71,7 +71,7 @@ export function Dashboard() {
       <div className="flex min-h-screen w-full flex-col">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur md:px-6">
           <div className="flex items-center gap-2">
-            <a className={`${isElectronApp ? 'hidden' : 'flex'} items-center gap-2 font-semibold`} href="#">
+            <a className={`${isDesktopAppShell ? 'hidden' : 'flex'} items-center gap-2 font-semibold`} href="#">
               <Logo className="h-8 w-8 text-primary" />
               <span className="text-xl font-bold hidden sm:inline-block">JeyPass</span>
             </a>
