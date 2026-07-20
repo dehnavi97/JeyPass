@@ -4,6 +4,8 @@ export interface NewCredential {
   password?: string;
   category?: string;
   totpSecret?: string;
+  tab?: string;
+  description?: string;
 }
 
 export interface Credential extends NewCredential {

@@ -11,6 +11,10 @@
     "setup_title": "Set Up Master Password",
     "setup_description": "Create a strong master password to secure your vault. This is the only way to access your data.",
     "setup_warning": "Note: This password cannot be recovered. Keep it safe.",
+    "setup_warning_header": "Critical Security Warning",
+    "setup_warning_no_recovery": "If you forget this password, there is absolutely no way to recover or access your data. JeyPass is a fully offline application and your data is never sent to any server.",
+    "setup_warning_safekeeping": "Write down your password and keep it in a completely secure physical location (e.g., in a safe or safe deposit box).",
+    "setup_warning_never_share": "Never share your master password with anyone. This password is the master key to all your sensitive information.",
     "login_title": "Unlock Vault",
     "login_description": "Enter your master password to unlock your vault and access your credentials.",
     "master_password_label": "Master Password",
@@ -35,7 +39,16 @@
     "subtitle": "Safe and secure",
     "about_button": "About",
     "logout_button": "Log out",
-    "timer_tooltip": "Press to Pause/Resume"
+    "timer_tooltip": "Press to Pause/Resume",
+    "change_password_button": "Change Password",
+    "change_password_title": "Change Master Password",
+    "change_password_desc": "Enter your current and new password to re-encrypt your vault with the new master password.",
+    "old_password_label": "Current Password",
+    "new_password_label": "New Password",
+    "confirm_new_password_label": "Confirm New Password",
+    "password_mismatch": "New passwords do not match.",
+    "change_password_success": "Master password changed successfully!",
+    "change_password_fail": "Failed to change password. Please verify your current password."
   },
   "about": {
     "version": "Version",
@@ -108,7 +121,8 @@
     "copy_success_title": "Copied!",
     "copy_success_description": "New password copied to clipboard.",
     "error_title": "Error",
-    "error_description": "At least one character set must be selected."
+    "error_description": "At least one character set must be selected.",
+    "use_password_btn": "Use this Password"
   },
   "backup": {
     "menu_title": "Settings & Backup",
@@ -121,7 +135,21 @@
     "restore_success_title": "Restore Complete",
     "restore_success_description": "Your vault has been successfully restored. The app will now reload.",
     "restore_fail_title": "Restore Failed",
-    "restore_fail_description": "The backup file is invalid or corrupted. No changes were made."
+    "restore_fail_description": "The backup file is invalid or corrupted. No changes were made.",
+    "backup_modal_title": "Create Custom Backup",
+    "backup_modal_desc": "Enter a password to protect your backup file and select the items you wish to back up.",
+    "backup_password_label": "Backup File Password",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All",
+    "backup_download_btn": "Download Backup",
+    "restore_modal_title": "Restore Data from Backup",
+    "restore_modal_desc": "Select the backup file and enter its password.",
+    "select_backup_file": "Select Backup File",
+    "delete_existing_label": "Delete existing app data?",
+    "replace_duplicates_label": "Replace duplicate data?",
+    "restore_submit_btn": "Start Restore",
+    "password_empty_err": "Please enter the backup file password.",
+    "no_selection_err": "Please select at least one password to back up."
   },
   "share": {
     "title": "Share Credential",
@@ -154,5 +182,21 @@
     "medium": "Medium",
     "large": "Large",
     "x-large": "X-Large"
+  },
+  "intro": {
+    "title": "Welcome to JeyPass",
+    "slide1_title": "Language & Theme",
+    "slide1_desc": "Choose your preferred language and a theme that suits your style.",
+    "slide2_title": "Fully Offline & Secure",
+    "slide2_desc": "All your passwords are encrypted locally using state-of-the-art standards (AES-GCM-256). Your data never leaves your device.",
+    "slide3_title": "Smart Categories & Tabs",
+    "slide3_desc": "Organize your passwords under custom categories and tabs for extremely fast access.",
+    "slide4_title": "Encrypted Backups",
+    "slide4_desc": "Create password-protected backups easily and selectively restore them whenever needed.",
+    "next": "Next",
+    "prev": "Previous",
+    "start": "Get Started",
+    "theme_label": "Preferred Theme",
+    "lang_label": "App Language"
   }
 }

@@ -12,6 +12,7 @@ import {
   User,
   ShieldCheck,
   Share2,
+  Info,
 } from "lucide-react";
 import * as OTPAuth from "otpauth";
 
@@ -41,6 +42,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { Credential } from "@/lib/types";
 import { useTranslation } from "react-i18next";
 import { Progress } from "@/components/ui/progress";
@@ -107,8 +113,10 @@ export function CredentialCard({
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<"username" | "password" | "totp" | null>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { token: totpToken, progress: totpProgress } = useTotp(credential);
+
+  const isRTL = i18n.dir() === "rtl";
 
   const handleCopy = (text: string | undefined | null, field: "username" | "password" | "totp") => {
     if (!text) return;
@@ -119,8 +127,32 @@ export function CredentialCard({
 
   return (
     <>
-      <Card className="w-full overflow-hidden transition-all hover:shadow-lg flex flex-col">
-        <CardHeader>
+      <Card className="w-full overflow-hidden transition-all hover:shadow-lg flex flex-col relative">
+        {/* Floating Description Over Popover (Requirement 9) */}
+        {credential.description && (
+          <div className={cn("absolute top-3 z-10", isRTL ? "left-3" : "right-3")}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted text-primary">
+                  <Info className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-4 bg-popover/95 backdrop-blur-md rounded-xl border border-border shadow-xl">
+                <div className="space-y-2">
+                  <h4 className="font-bold text-sm text-primary flex items-center gap-1.5">
+                    <Info className="h-4 w-4" />
+                    <span>توضیحات</span>
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap text-right">
+                    {credential.description}
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+
+        <CardHeader className={cn(credential.description && (isRTL ? "pl-12" : "pr-12"))}>
           <CardTitle className="truncate">{credential.title}</CardTitle>
           {credential.username && (
             <CardDescription className="flex items-center gap-2 pt-1 text-base">

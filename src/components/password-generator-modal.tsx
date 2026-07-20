@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 type PasswordGeneratorModalProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  onUsePassword?: (password: string) => void;
 };
 
 const CHARSETS = {
@@ -32,6 +33,7 @@ const CHARSETS = {
 export function PasswordGeneratorModal({
   isOpen,
   onOpenChange,
+  onUsePassword,
 }: PasswordGeneratorModalProps) {
   const [length, setLength] = useState(16);
   const [includeUppercase, setIncludeUppercase] = useState(true);
@@ -140,6 +142,19 @@ export function PasswordGeneratorModal({
               </div>
             </div>
           </div>
+
+          {onUsePassword && (
+            <Button
+              className="w-full mt-4 font-bold rounded-xl"
+              onClick={() => {
+                onUsePassword(generatedPassword);
+                onOpenChange(false);
+              }}
+            >
+              <Check className="ml-2 h-4 w-4" />
+              {t('generator.use_password_btn')}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

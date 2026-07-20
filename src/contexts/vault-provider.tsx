@@ -5,11 +5,10 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useContext,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/hooks/use-auth";
-import { encryptData, decryptData } from "@/lib/crypto";
+import { encryptData, decryptData, deriveKey, generateSalt, bytesToHex, hexToBytes } from "@/lib/crypto";
 import type { Credential, NewCredential } from "@/lib/types";
 
 const LOCAL_STORAGE_KEY = "jeypass_credentials";
@@ -21,6 +20,13 @@ interface VaultContextType {
   deleteCredential: (id: string) => void;
   backup: () => void;
   restore: (file: File) => Promise<boolean>;
+  backupSelected: (selectedIds: string[], backupPassword: string) => Promise<boolean>;
+  restoreCustom: (
+    file: File,
+    backupPassword: string,
+    deleteExisting: boolean,
+    replaceDuplicates: boolean
+  ) => Promise<boolean>;
 }
 
 export const VaultContext = createContext<VaultContextType | undefined>(
@@ -121,6 +127,47 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
     URL.revokeObjectURL(url);
   };
 
+  const backupSelected = async (selectedIds: string[], backupPassword: string): Promise<boolean> => {
+    try {
+      const selectedCreds = credentials.filter(c => selectedIds.includes(c.id));
+      const cleanCreds = selectedCreds.map(c => ({
+        title: c.title,
+        username: c.username || "",
+        password: c.password || "",
+        category: c.category || "",
+        totpSecret: c.totpSecret || "",
+        tab: c.tab || "Default",
+        description: c.description || ""
+      }));
+
+      const backupSalt = generateSalt();
+      const backupKey = await deriveKey(backupPassword, backupSalt);
+      const encryptedHex = await encryptData(JSON.stringify(cleanCreds), backupKey);
+
+      const backupData = JSON.stringify({
+        salt: bytesToHex(backupSalt),
+        credentials: encryptedHex,
+        isCustomProtected: true
+      });
+
+      const blob = new Blob([backupData], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `jeypass-backup-${
+        new Date().toISOString().split("T")[0]
+      }.jeypass-backup`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (e) {
+      console.error("Backup Selected failed:", e);
+      return false;
+    }
+  };
+
   const restore = (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -156,6 +203,82 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  const restoreCustom = (
+    file: File,
+    backupPassword: string,
+    deleteExisting: boolean,
+    replaceDuplicates: boolean
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const result = e.target?.result;
+          if (typeof result !== "string") {
+            resolve(false);
+            return;
+          }
+          const backupData = JSON.parse(result);
+
+          if (!backupData.salt || !backupData.credentials) {
+            resolve(false);
+            return;
+          }
+
+          const salt = hexToBytes(backupData.salt);
+          const backupKey = await deriveKey(backupPassword, salt);
+          const decryptedJSON = await decryptData(backupData.credentials, backupKey);
+          const importedCreds: Credential[] = JSON.parse(decryptedJSON);
+
+          if (!Array.isArray(importedCreds)) {
+            resolve(false);
+            return;
+          }
+
+          const importedWithIds = importedCreds.map(c => ({
+            id: c.id || uuidv4(),
+            title: c.title || "",
+            username: c.username || "",
+            password: c.password || "",
+            category: c.category || "",
+            totpSecret: c.totpSecret || "",
+            tab: c.tab || "Default",
+            description: c.description || ""
+          }));
+
+          let finalCreds: Credential[] = [];
+
+          if (deleteExisting) {
+            finalCreds = importedWithIds;
+          } else {
+            finalCreds = [...credentials];
+
+            for (const imp of importedWithIds) {
+              const existingIdx = finalCreds.findIndex(
+                (c) => c.title.toLowerCase() === imp.title.toLowerCase()
+              );
+
+              if (existingIdx !== -1) {
+                if (replaceDuplicates) {
+                  finalCreds[existingIdx] = imp;
+                }
+              } else {
+                finalCreds.push(imp);
+              }
+            }
+          }
+
+          await saveCredentials(finalCreds);
+          resolve(true);
+        } catch (error) {
+          console.error("Failed to restore backup:", error);
+          resolve(false);
+        }
+      };
+      reader.readAsText(file);
+    });
+  };
+
   const value = {
     credentials,
     addCredential,
@@ -163,6 +286,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
     deleteCredential,
     backup,
     restore,
+    backupSelected,
+    restoreCustom,
   };
 
   return (

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, LockKeyhole } from "lucide-react";
+import { Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -107,9 +107,17 @@ export function AuthPage({ isSetup }: AuthPageProps) {
             </form>
           </Form>
           {isSetup && (
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              {t('auth.setup_warning')}
-            </p>
+            <div className="mt-6 rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-sm space-y-3 shadow-md">
+              <div className="flex items-center gap-2 text-destructive font-bold">
+                <ShieldAlert className="h-5 w-5 shrink-0" />
+                <span className="text-base">{t('auth.setup_warning_header')}</span>
+              </div>
+              <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground list-disc list-inside">
+                <li>{t('auth.setup_warning_no_recovery')}</li>
+                <li>{t('auth.setup_warning_safekeeping')}</li>
+                <li>{t('auth.setup_warning_never_share')}</li>
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>
