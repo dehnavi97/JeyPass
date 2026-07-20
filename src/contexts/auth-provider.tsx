@@ -19,6 +19,7 @@ interface AuthContextType {
   login: (password: string) => Promise<boolean>;
   logout: () => void;
   setupMasterPassword: (password: string) => Promise<boolean>;
+  changeMasterPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,12 +75,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsAuthenticated(false);
   };
 
+  const changeMasterPassword = async (oldPassword: string, newPassword: string): Promise<boolean> => {
+    try {
+      const saltHex = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}salt`);
+      const verificationHash = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}verificationHash`);
+
+      if (!saltHex || !verificationHash) {
+        return false;
+      }
+
+      const salt = hexToBytes(saltHex);
+      const oldKey = await deriveKey(oldPassword, salt);
+      const decryptedVerification = await decryptData(verificationHash, oldKey);
+
+      if (decryptedVerification !== VERIFICATION_STRING) {
+        return false;
+      }
+
+      const encryptedCredentials = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}credentials`);
+      let credentialsJSON = "[]";
+      if (encryptedCredentials) {
+        credentialsJSON = await decryptData(encryptedCredentials, oldKey);
+      }
+
+      const newSalt = generateSalt();
+      const newKey = await deriveKey(newPassword, newSalt);
+      const newVerificationHash = await encryptData(VERIFICATION_STRING, newKey);
+      const newEncryptedCredentials = await encryptData(credentialsJSON, newKey);
+
+      localStorage.setItem(`${LOCAL_STORAGE_PREFIX}salt`, bytesToHex(newSalt));
+      localStorage.setItem(`${LOCAL_STORAGE_PREFIX}verificationHash`, newVerificationHash);
+      localStorage.setItem(`${LOCAL_STORAGE_PREFIX}credentials`, newEncryptedCredentials);
+
+      setMasterKey(newKey);
+      return true;
+    } catch (error) {
+      console.error("Change password failed:", error);
+      return false;
+    }
+  };
+
   const value = {
     isAuthenticated,
     masterKey,
     login,
     logout,
     setupMasterPassword,
+    changeMasterPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
