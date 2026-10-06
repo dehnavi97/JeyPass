@@ -19,6 +19,7 @@ import { useVault } from "@/hooks/use-vault";
 import { useToast } from "@/hooks/use-toast";
 import { PasswordStrengthMeter } from "./password-strength-meter";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type CredentialFormProps = {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function CredentialForm({
   onOpenChange,
   credentialToEdit,
 }: CredentialFormProps) {
-  const { addCredential, updateCredential } = useVault();
+  const { addCredential, updateCredential, workspaces, activeWorkspaceId } = useVault();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const { t } = useTranslation();
@@ -44,6 +45,7 @@ export function CredentialForm({
     username: z.string().optional(),
     password: z.string().min(1, t('form.password_required')),
     category: z.string().optional(),
+    workspaceId: z.string().optional(),
     totpSecret: z.string().optional(),
   });
 
@@ -54,6 +56,7 @@ export function CredentialForm({
       username: "",
       password: "",
       category: "",
+      workspaceId: activeWorkspaceId !== "all" ? activeWorkspaceId : "default",
       totpSecret: "",
     },
   });
@@ -62,19 +65,28 @@ export function CredentialForm({
 
   useEffect(() => {
     if (isOpen) {
+      const defaultWs = activeWorkspaceId !== "all" ? activeWorkspaceId : "default";
       if (credentialToEdit) {
         form.reset({
           title: credentialToEdit.title,
           username: credentialToEdit.username,
           password: credentialToEdit.password,
           category: credentialToEdit.category || "",
+          workspaceId: credentialToEdit.workspaceId || defaultWs,
           totpSecret: credentialToEdit.totpSecret || "",
         });
       } else {
-        form.reset({ title: "", username: "", password: "", category: "", totpSecret: "" });
+        form.reset({
+          title: "",
+          username: "",
+          password: "",
+          category: "",
+          workspaceId: defaultWs,
+          totpSecret: "",
+        });
       }
     }
-  }, [credentialToEdit, isOpen, form, t]);
+  }, [credentialToEdit, isOpen, form, t, activeWorkspaceId]);
   
   const processQrCodeData = (data: string) => {
     try {
@@ -182,6 +194,7 @@ export function CredentialForm({
       const dataToSave = {
         ...values,
         category: values.category || t('form.default_category'),
+        workspaceId: values.workspaceId || (activeWorkspaceId !== "all" ? activeWorkspaceId : "default"),
       };
       if (credentialToEdit) {
         updateCredential(credentialToEdit.id, dataToSave);
@@ -218,19 +231,45 @@ export function CredentialForm({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('form.category_label')}</FormLabel>
-                  <FormControl>
-                    <Input placeholder={t('form.category_placeholder')} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('form.category_label')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('form.category_placeholder')} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="workspaceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('form.workspace_label', 'Workspace')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "default"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('form.workspace_placeholder', 'Select workspace')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {workspaces.map((ws) => (
+                          <SelectItem key={ws.id} value={ws.id}>
+                            {ws.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="username"

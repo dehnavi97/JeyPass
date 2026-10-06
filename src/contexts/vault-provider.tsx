@@ -5,20 +5,34 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useContext,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/hooks/use-auth";
 import { encryptData, decryptData } from "@/lib/crypto";
-import type { Credential, NewCredential } from "@/lib/types";
+import type { Credential, NewCredential, Workspace } from "@/lib/types";
 
 const LOCAL_STORAGE_KEY = "jeypass_credentials";
+const WORKSPACES_STORAGE_KEY = "jeypass_workspaces";
+
+export const DEFAULT_WORKSPACE: Workspace = {
+  id: "default",
+  name: "Default",
+  isDefault: true,
+  color: "blue",
+};
 
 interface VaultContextType {
   credentials: Credential[];
+  workspaces: Workspace[];
+  activeWorkspaceId: string;
+  setActiveWorkspaceId: (id: string) => void;
   addCredential: (newCredential: NewCredential) => void;
   updateCredential: (id: string, updatedData: NewCredential) => void;
   deleteCredential: (id: string) => void;
+  moveCredentialWorkspace: (credentialId: string, targetWorkspaceId: string) => void;
+  addWorkspace: (name: string, color?: string) => Workspace;
+  updateWorkspace: (id: string, name: string, color?: string) => void;
+  deleteWorkspace: (id: string) => void;
   backup: () => void;
   restore: (file: File) => Promise<boolean>;
 }
@@ -32,6 +46,39 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { masterKey, isAuthenticated } = useAuth();
   const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([DEFAULT_WORKSPACE]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("all");
+
+  const saveWorkspaces = useCallback((wsList: Workspace[]) => {
+    try {
+      localStorage.setItem(WORKSPACES_STORAGE_KEY, JSON.stringify(wsList));
+    } catch (err) {
+      console.error("Failed to save workspaces:", err);
+    }
+  }, []);
+
+  // Load workspaces on initial mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(WORKSPACES_STORAGE_KEY);
+      if (stored) {
+        const parsed: Workspace[] = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Ensure default workspace always exists
+          const hasDefault = parsed.some((w) => w.id === "default" || w.isDefault);
+          if (!hasDefault) {
+            parsed.unshift(DEFAULT_WORKSPACE);
+          }
+          setWorkspaces(parsed);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load workspaces:", err);
+    }
+    setWorkspaces([DEFAULT_WORKSPACE]);
+    saveWorkspaces([DEFAULT_WORKSPACE]);
+  }, [saveWorkspaces]);
 
   const saveCredentials = useCallback(
     async (creds: Credential[]) => {
@@ -61,7 +108,12 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
         if (encryptedData) {
           const decryptedData = await decryptData(encryptedData, masterKey);
           const loadedCredentials: Credential[] = JSON.parse(decryptedData);
-          setCredentials(loadedCredentials);
+          // Migrate legacy credentials without workspaceId to "default"
+          const migrated = loadedCredentials.map((c) => ({
+            ...c,
+            workspaceId: c.workspaceId || "default",
+          }));
+          setCredentials(migrated);
         } else {
           await saveCredentials([]);
         }
@@ -75,7 +127,14 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isAuthenticated, masterKey, saveCredentials]);
 
   const addCredential = (newCredential: NewCredential) => {
-    const cred: Credential = { id: uuidv4(), ...newCredential };
+    const targetWs =
+      newCredential.workspaceId ||
+      (activeWorkspaceId !== "all" ? activeWorkspaceId : "default");
+    const cred: Credential = {
+      id: uuidv4(),
+      ...newCredential,
+      workspaceId: targetWs,
+    };
     const updatedCredentials = [...credentials, cred];
     saveCredentials(updatedCredentials);
   };
@@ -92,10 +151,59 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
     saveCredentials(updatedCredentials);
   };
 
+  const moveCredentialWorkspace = (credentialId: string, targetWorkspaceId: string) => {
+    const updatedCredentials = credentials.map((cred) =>
+      cred.id === credentialId ? { ...cred, workspaceId: targetWorkspaceId } : cred
+    );
+    saveCredentials(updatedCredentials);
+  };
+
+  const addWorkspace = (name: string, color: string = "blue") => {
+    const newWs: Workspace = {
+      id: uuidv4(),
+      name: name.trim(),
+      color,
+      createdAt: Date.now(),
+    };
+    const updated = [...workspaces, newWs];
+    setWorkspaces(updated);
+    saveWorkspaces(updated);
+    return newWs;
+  };
+
+  const updateWorkspace = (id: string, name: string, color?: string) => {
+    const updated = workspaces.map((ws) =>
+      ws.id === id
+        ? { ...ws, name: name.trim(), ...(color ? { color } : {}) }
+        : ws
+    );
+    setWorkspaces(updated);
+    saveWorkspaces(updated);
+  };
+
+  const deleteWorkspace = (id: string) => {
+    if (id === "default") return;
+
+    // Move any credentials in this workspace back to default
+    const updatedCredentials = credentials.map((cred) =>
+      cred.workspaceId === id ? { ...cred, workspaceId: "default" } : cred
+    );
+    saveCredentials(updatedCredentials);
+
+    const updatedWorkspaces = workspaces.filter((ws) => ws.id !== id);
+    setWorkspaces(updatedWorkspaces);
+    saveWorkspaces(updatedWorkspaces);
+
+    if (activeWorkspaceId === id) {
+      setActiveWorkspaceId("default");
+    }
+  };
+
   const backup = () => {
     const salt = localStorage.getItem("jeypass_salt");
     const verificationHash = localStorage.getItem("jeypass_verificationHash");
     const creds = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const ws = localStorage.getItem(WORKSPACES_STORAGE_KEY);
 
     if (!salt || !verificationHash || !creds) {
       console.error("Missing data for backup.");
@@ -106,6 +214,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
       salt,
       verificationHash,
       credentials: creds,
+      workspaces: ws,
     });
 
     const blob = new Blob([backupData], { type: "application/json" });
@@ -143,6 +252,9 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
               backupData.verificationHash
             );
             localStorage.setItem(LOCAL_STORAGE_KEY, backupData.credentials);
+            if (backupData.workspaces) {
+              localStorage.setItem(WORKSPACES_STORAGE_KEY, backupData.workspaces);
+            }
             resolve(true);
           } else {
             resolve(false);
@@ -158,9 +270,16 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value = {
     credentials,
+    workspaces,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
     addCredential,
     updateCredential,
     deleteCredential,
+    moveCredentialWorkspace,
+    addWorkspace,
+    updateWorkspace,
+    deleteWorkspace,
     backup,
     restore,
   };

@@ -15,14 +15,17 @@ import type { Credential } from "@/lib/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { PasswordGeneratorModal } from "./password-generator-modal";
+import { ImportJpasModal } from "./import-jpas-modal";
 import { ThemeSwitcher } from "./theme-switcher";
 import { FloatingActionMenu } from "./floating-action-menu";
+import { WorkspaceTabs } from "./workspace-tabs";
 import { isDesktopApp } from "@/lib/utils";
 
 export function Dashboard() {
-  const { credentials, deleteCredential } = useVault();
+  const { credentials, deleteCredential, activeWorkspaceId } = useVault();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [credentialToEdit, setCredentialToEdit] = useState<Credential | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDesktopAppShell, setIsDesktopAppShell] = useState(false);
@@ -46,11 +49,18 @@ export function Dashboard() {
     setIsGeneratorOpen(true);
   };
 
+  const handleOpenImport = () => {
+    setIsImportModalOpen(true);
+  };
+
   const filteredCredentials = useMemo(() => {
-    return credentials.filter((cred) =>
-      cred.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [credentials, searchTerm]);
+    return credentials.filter((cred) => {
+      const matchesSearch = cred.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const credWs = cred.workspaceId || "default";
+      const matchesWorkspace = activeWorkspaceId === "all" || credWs === activeWorkspaceId;
+      return matchesSearch && matchesWorkspace;
+    });
+  }, [credentials, searchTerm, activeWorkspaceId]);
 
   const groupedCredentials = useMemo(() => {
     const defaultCategory = t('form.default_category');
@@ -93,6 +103,8 @@ export function Dashboard() {
             <UserNav />
           </div>
         </header>
+
+        <WorkspaceTabs />
 
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
           <div className="flex items-center justify-between gap-2 md:hidden">
@@ -149,6 +161,7 @@ export function Dashboard() {
         <FloatingActionMenu 
           onAddCredential={handleAddNew}
           onGeneratePassword={handleOpenGenerator}
+          onImportJpas={handleOpenImport}
         />
       </div>
 
@@ -160,6 +173,10 @@ export function Dashboard() {
       <PasswordGeneratorModal
         isOpen={isGeneratorOpen}
         onOpenChange={setIsGeneratorOpen}
+      />
+      <ImportJpasModal
+        isOpen={isImportModalOpen}
+        onOpenChange={setIsImportModalOpen}
       />
     </>
   );

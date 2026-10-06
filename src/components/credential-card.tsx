@@ -12,6 +12,7 @@ import {
   User,
   ShieldCheck,
   Share2,
+  FolderInput,
 } from "lucide-react";
 import * as OTPAuth from "otpauth";
 
@@ -31,6 +32,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -46,6 +55,9 @@ import { useTranslation } from "react-i18next";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { ShareCredentialModal } from "./share-credential-modal";
+import { useVault } from "@/hooks/use-vault";
+import { useToast } from "@/hooks/use-toast";
+import { WORKSPACE_COLORS } from "./workspace-modal";
 
 type CredentialCardProps = {
   credential: Credential;
@@ -108,7 +120,19 @@ export function CredentialCard({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<"username" | "password" | "totp" | null>(null);
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const { workspaces, moveCredentialWorkspace } = useVault();
   const { token: totpToken, progress: totpProgress } = useTotp(credential);
+
+  const currentWorkspace = useMemo(() => {
+    const wsId = credential.workspaceId || "default";
+    return workspaces.find((w) => w.id === wsId) || workspaces.find((w) => w.id === "default");
+  }, [credential.workspaceId, workspaces]);
+
+  const colorConfig = useMemo(() => {
+    if (!currentWorkspace) return WORKSPACE_COLORS[0];
+    return WORKSPACE_COLORS.find((c) => c.name === currentWorkspace.color) || WORKSPACE_COLORS[0];
+  }, [currentWorkspace]);
 
   const handleCopy = (text: string | undefined | null, field: "username" | "password" | "totp") => {
     if (!text) return;
@@ -117,13 +141,33 @@ export function CredentialCard({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const handleMoveWorkspace = (targetWsId: string, targetWsName: string) => {
+    moveCredentialWorkspace(credential.id, targetWsId);
+    toast({
+      title: t("workspace.moved_success_title", "Workspace Changed"),
+      description: t("workspace.moved_success_description", {
+        title: credential.title,
+        workspace: targetWsName,
+        defaultValue: `Moved "${credential.title}" to workspace "${targetWsName}".`,
+      }),
+    });
+  };
+
   return (
     <>
       <Card className="w-full overflow-hidden transition-all hover:shadow-lg flex flex-col">
-        <CardHeader>
-          <CardTitle className="truncate">{credential.title}</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="truncate text-lg">{credential.title}</CardTitle>
+            {currentWorkspace && (
+              <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground flex items-center gap-1.5 shrink-0 border border-border/50">
+                <span className={`h-1.5 w-1.5 rounded-full ${colorConfig.class}`} />
+                <span className="truncate max-w-[80px] sm:max-w-[100px]">{currentWorkspace.name}</span>
+              </span>
+            )}
+          </div>
           {credential.username && (
-            <CardDescription className="flex items-center gap-2 pt-1 text-base">
+            <CardDescription className="flex items-center gap-2 pt-1 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="truncate">{credential.username}</span>
             </CardDescription>
@@ -226,41 +270,75 @@ export function CredentialCard({
             </div>
           )}
         </CardContent>
-        <CardFooter className="bg-muted/50 px-6 py-3 mt-auto">
-          <div className="flex w-full justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsShareModalOpen(true)}>
-                <Share2 className="ml-2 h-4 w-4" />
-                {t('common.share')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onEdit(credential)}>
-              <Edit className="ml-2 h-4 w-4" />
-              {t('common.edit')}
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                  <Trash2 className="ml-2 h-4 w-4" />
-                  {t('common.delete')}
+        <CardFooter className="bg-muted/50 px-4 py-2 mt-auto">
+          <div className="flex w-full items-center justify-between gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground">
+                  <FolderInput className="h-3.5 w-3.5 mr-1.5 rtl:ml-1.5 rtl:mr-0 text-primary/80" />
+                  <span className="text-xs">{t('workspace.move_button', 'Move')}</span>
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('credential.delete_confirm_title')}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('credential.delete_confirm_description', { title: credential.title })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => onDelete(credential.id)}
-                  >
-                    {t('common.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel className="text-xs">
+                  {t('workspace.move_menu_title', 'Move to Workspace')}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {workspaces.map((ws) => {
+                  const isCurrent = (credential.workspaceId || "default") === ws.id;
+                  const color = WORKSPACE_COLORS.find((c) => c.name === ws.color) || WORKSPACE_COLORS[0];
+                  return (
+                    <DropdownMenuItem
+                      key={ws.id}
+                      disabled={isCurrent}
+                      onClick={() => handleMoveWorkspace(ws.id, ws.name)}
+                      className="flex items-center justify-between text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${color.class}`} />
+                        <span>{ws.name}</span>
+                      </div>
+                      {isCurrent && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setIsShareModalOpen(true)}>
+                <Share2 className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0" />
+                <span className="text-xs">{t('common.share')}</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => onEdit(credential)}>
+                <Edit className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0" />
+                <span className="text-xs">{t('common.edit')}</span>
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('credential.delete_confirm_title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('credential.delete_confirm_description', { title: credential.title })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => onDelete(credential.id)}
+                    >
+                      {t('common.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </CardFooter>
       </Card>

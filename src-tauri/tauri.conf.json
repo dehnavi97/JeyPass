@@ -5,16 +5,17 @@
   "identifier": "com.jeypass.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:9002",
+    "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "JeyPass",
-        "width": 1200,
-        "height": 800,
+        "width": 1000,
+        "height": 700,
         "minWidth": 800,
         "minHeight": 600,
         "decorations": false,

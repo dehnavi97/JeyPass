@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, KeyRound, ShieldPlus } from "lucide-react";
+import { Plus, KeyRound, ShieldPlus, FileUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import { useScrollDirection } from "@/hooks/use-scroll-direction";
 type FloatingActionMenuProps = {
   onAddCredential: () => void;
   onGeneratePassword: () => void;
+  onImportJpas: () => void;
 };
 
-export function FloatingActionMenu({ onAddCredential, onGeneratePassword }: FloatingActionMenuProps) {
+export function FloatingActionMenu({ onAddCredential, onGeneratePassword, onImportJpas }: FloatingActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
   const scrollDirection = useScrollDirection();
@@ -35,6 +36,24 @@ export function FloatingActionMenu({ onAddCredential, onGeneratePassword }: Floa
             "flex flex-col items-center gap-4 transition-all duration-300 ease-out",
             isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
         )}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="lg"
+                className="rounded-full shadow-lg h-14 w-14 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => {
+                  onImportJpas();
+                  toggleMenu();
+                }}
+              >
+                <FileUp className="h-6 w-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={15}>
+              <p>{t('dashboard.import_jpas_button', 'Import .jpas File')}</p>
+            </TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

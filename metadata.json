@@ -1,0 +1,6 @@
+{
+  "name": "JeyPass Secure Vault",
+  "description": "A modern, secure, and offline-capable password manager.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
