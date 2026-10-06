@@ -9,13 +9,14 @@
     "url": "https://github.com/dehnavi97"
   },
   "scripts": {
-    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "dev": "next dev --turbopack -p 9002",
     "dev:desktop": "concurrently -k \"npm:dev\" \"tauri dev\"",
     "build": "next build",
     "build:desktop": "npm run build && tauri build",
-    "start": "next start -p 3000 -H 0.0.0.0",
-    "lint": "echo 'No lint errors'",
+    "start": "next start",
+    "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "postinstall": "npm run build",
     "tauri": "tauri",
     "assets:generate": "capacitor-assets generate --android",
     "assets:generate:icons": "capacitor-assets generate --android --icon-background-color '#ffffff' --icon-background-color-dark '#ffffff'",
